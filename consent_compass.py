@@ -43,22 +43,26 @@ class ConsentCompass(gl.Contract):
     def evaluate(self, request_id: str) -> None:
         key = self._key(gl.message.sender_address, request_id); record = json.loads(self.requests.get(key, "{}"))
         if not record or record["state"] != "PENDING": raise gl.vm.UserError("request is not pending")
-        captured = {}
         def run():
-            bodies = [gl.nondet.web.get(u).body.decode("utf-8") for u in (record["policy"], record["notice"], record["regulator"])]
-            if any(not 2 <= len(v) <= 100000 for v in bodies): raise gl.vm.UserError("policy evidence unavailable")
-            captured["bodies"] = bodies
+            try:
+                bodies = [gl.nondet.web.get(u).body.decode("utf-8") for u in (record["policy"], record["notice"], record["regulator"])]
+                if any(not 2 <= len(v) <= 100000 for v in bodies): raise gl.vm.UserError("policy evidence unavailable")
+            except Exception:
+                return {"status": "UNCLEAR", "basis": "The policy evidence was unavailable or inconsistent.", "conditions": ["retry with reachable sources"], "confidence": 0, "digests": []}
             prompt = ("Classify whether a proposed data use is permitted by the supplied privacy policy, notice, and regulator guidance. "
                       "Return JSON only: status ALLOWED, RESTRICTED, BLOCKED, or UNCLEAR; basis; conditions list; confidence 0-100. "
                       "Never invent a legal rule and choose UNCLEAR when sources conflict.\nPURPOSE:\n" + record["purpose"] +
                       "\nDATA CATEGORIES:\n" + record["categories"] + "\nPOLICY:\n" + bodies[0] + "\nNOTICE:\n" + bodies[1] + "\nREGULATOR:\n" + bodies[2])
-            return {**parse_decision(gl.nondet.exec_prompt(prompt).strip()), "digests": [hashlib.sha256(v.encode()).hexdigest() for v in bodies]}
+            try:
+                decided = parse_decision(gl.nondet.exec_prompt(prompt).strip())
+            except Exception:
+                decided = {"status": "UNCLEAR", "basis": "Validator output was not machine-readable.", "conditions": ["structured validator decision required"], "confidence": 0}
+            return {**decided, "digests": [hashlib.sha256(v.encode()).hexdigest() for v in bodies]}
         def validate(leader_result):
             if not isinstance(leader_result, gl.vm.Return): return False
             own = run(); leader = leader_result.calldata
             return leader["status"] == own["status"] and abs(int(leader["confidence"]) - int(own["confidence"])) <= 20
         result = gl.vm.run_nondet_unsafe(run, validate)
-        bodies = captured["bodies"]
         record.update({"status": result["status"], "basis": result["basis"], "conditions": result["conditions"], "confidence": result["confidence"], "digests": result["digests"], "state": "FINAL"})
         self.requests[key] = json.dumps(record, sort_keys=True, separators=(",", ":"))
 
