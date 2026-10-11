@@ -1,8 +1,8 @@
 {
-  "name": "ConsentCompassV2",
-  "address": "0x14f956429c319cDe153282a85804E38D61268B98",
-  "transaction": "0xbd25437689f22004e8e6a846174f10c346284ff9aca8edbd77760c5a048b4f10",
-  "source_sha256": "bbe9161297d0684da7eb1f50daf80213118ef952f89f47cb3ca91b0ea8114671",
+  "name": "ConsentCompassV3",
+  "address": "0x744FFd50b5054501fb025ce9138011F86464E318",
+  "transaction": "0x574afab1073c4aad04676031404cba31c842364b7013b5df41d535edc86d207d",
+  "source_sha256": "7be4da6e50409dbec8a2bc9c68da61d1e9cb06aa7d2d4e2254ff05b302939871",
   "network": "studionet",
   "source_verified": true
 }
