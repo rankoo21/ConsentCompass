@@ -52,18 +52,19 @@ class ConsentCompass(gl.Contract):
                       "Return JSON only: status ALLOWED, RESTRICTED, BLOCKED, or UNCLEAR; basis; conditions list; confidence 0-100. "
                       "Never invent a legal rule and choose UNCLEAR when sources conflict.\nPURPOSE:\n" + record["purpose"] +
                       "\nDATA CATEGORIES:\n" + record["categories"] + "\nPOLICY:\n" + bodies[0] + "\nNOTICE:\n" + bodies[1] + "\nREGULATOR:\n" + bodies[2])
-            return parse_decision(gl.nondet.exec_prompt(prompt).strip())
+            return {**parse_decision(gl.nondet.exec_prompt(prompt).strip()), "digests": [hashlib.sha256(v.encode()).hexdigest() for v in bodies]}
         def validate(leader_result):
             if not isinstance(leader_result, gl.vm.Return): return False
             own = run(); leader = leader_result.calldata
             return leader["status"] == own["status"] and abs(int(leader["confidence"]) - int(own["confidence"])) <= 20
         result = gl.vm.run_nondet_unsafe(run, validate)
         bodies = captured["bodies"]
-        record.update({"status": result["status"], "basis": result["basis"], "conditions": result["conditions"], "confidence": result["confidence"], "digests": [hashlib.sha256(v.encode()).hexdigest() for v in bodies], "state": "FINAL"})
+        record.update({"status": result["status"], "basis": result["basis"], "conditions": result["conditions"], "confidence": result["confidence"], "digests": result["digests"], "state": "FINAL"})
         self.requests[key] = json.dumps(record, sort_keys=True, separators=(",", ":"))
 
     @gl.public.view
     def get_request(self, owner: str, request_id: str) -> str: return self.requests.get(self._key(owner, request_id), "{}")
+
 
 
 
